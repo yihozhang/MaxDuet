@@ -118,12 +118,15 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
             edge_info[edge->semantics->name].second.push_back(edge);
         }
         for (auto info: edge_info) {
+            // for all instantiation of the production rule valid for ex 1..n-1
             for (auto* l_edge: info.second.first) {
+                // for all instantiation of the production rule valid for ex n
                 for (auto* r_edge: info.second.second) {
                     std::vector<VSANode*> v;
 #ifdef DEBUG
                     assert(l_edge->v.size() == r_edge->v.size());
 #endif
+                    // for each argument of this instantiation, add the example from the right
                     for (int i = 0; i < l_edge->v.size(); ++i) {
 #ifdef DEBUG
                         assert(l_edge->v[i]->state == r_edge->v[i]->state);
@@ -161,6 +164,7 @@ void SynthesisTask::VSANode::print() {
 #define TRIVIAL_BOUND(node) (graph->minimal_context_list[node->state].upper_bound)
 
 bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double limit) {
+    static int ts = 0;
     if (node->best_program != nullptr) return true;
     if (node->p < limit) return false;
     if (node->l != nullptr) {
@@ -180,6 +184,7 @@ bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double 
     }
     if (node->updateP() < limit) return false;
     std::vector<VSAEdge*> possible_edge;
+    // scan through possible edges
     double _limit = limit;
     for (auto* edge: node->edge_list) {
         if (edge->w >= limit) {
@@ -197,8 +202,12 @@ bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double 
             }
         }
     }
+    int b = ++ts;
+    std::cerr << "possible edge size" << possible_edge.size() << " of " << b << std::endl;
     while (true) {
+        std::cerr << "sub possible edge size" << possible_edge.size() << " of " << b << std::endl;
         VSAEdge* best_edge = nullptr;
+        // try to find the best edge among all possible edges according to a creteria
         double best_remain = 0;
         for (auto *edge: possible_edge) {
             if (edge->w <= limit) continue;
@@ -213,16 +222,20 @@ bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double 
             }
         }
         if (best_edge == nullptr) break;
+
+        // the p value of each node from the best edge
         std::vector<double> remain_list;
         for (auto* sub_node: best_edge->v) {
             remain_list.push_back(sub_node->p);
         }
         for (int i = 0; i < remain_list.size(); ++i) {
             VSANode* sub_node = best_edge->v[i];
+            // if successfully find programs for a  node
             if (sub_node->best_program == nullptr && getBestProgramWithOup(sub_node, example_id,remain_list[i] + best_remain)) {
                 break;
             }
         }
+        // shrink possible edges and update limit
         int now = 0;
         node->p = limit;
         for (auto* edge: possible_edge) {
