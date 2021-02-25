@@ -152,12 +152,12 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
 }
 
 void SynthesisTask::VSAEdge::print() {
-    std::cout << "Edge " << semantics->name << " " << rule_w << " " << updateW() << std::endl;
-    for (auto* node: v) std::cout << encodeFeature(node->state, node->value) << " "; std::cout << std::endl;
+    std::cerr << "Edge " << semantics->name << " " << rule_w << " " << updateW() << std::endl;
+    for (auto* node: v) std::cerr << encodeFeature(node->state, node->value) << " "; std::cerr << std::endl;
 }
 
 void SynthesisTask::VSANode::print() {
-    std::cout << "Node " << encodeFeature(state, value) << std::endl;
+    std::cerr << "Node " << encodeFeature(state, value) << std::endl;
     for (auto* edge: edge_list) edge->print();
 }
 
@@ -203,9 +203,7 @@ bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double 
         }
     }
     int b = ++ts;
-    std::cerr << "possible edge size" << possible_edge.size() << " of " << b << std::endl;
     while (true) {
-        std::cerr << "sub possible edge size" << possible_edge.size() << " of " << b << std::endl;
         VSAEdge* best_edge = nullptr;
         // try to find the best edge among all possible edges according to a creteria
         double best_remain = 0;
@@ -358,6 +356,14 @@ Program * SynthesisTask::solve() {
     LOG(INFO) << "New example: " << spec->example_space[0]->toString() << std::endl;
     while (1) {
         Program* result = synthesisProgramFromExample();
+        if (combined_node_map.size() > 100) {
+            for (const auto& node: combined_node_map)  {
+                auto& context_node = graph->minimal_context_list[node.second->state];
+                std::cerr << context_node.symbol->name << " " << context_node.minimal_context->encodeContext() << std::endl;
+                node.second->print();
+            }
+            return nullptr;
+        }
         LOG(INFO) << "Program: " << result->toString() << "; Log-prob: " << calculateProbability(0, result) << std::endl;
         for (int i = 0; i < example_list.size(); ++i) {
 #ifdef DEBUG
@@ -374,5 +380,32 @@ Program * SynthesisTask::solve() {
 #endif
         addNewExample(counter_example);
         LOG(INFO) << "New example: " << counter_example->toString() << std::endl;
+    }
+}
+
+void SynthesisTask::enumerateNodes(int pos, std::vector<int> v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret) {
+    if (pos == v.size()) {
+        ret.push_back(std::vector<VSANode*>(curr));
+    } else {
+        int state = v[pos];
+        for (const Node& node: graph->minimal_context_list[state]) {
+            
+        }
+    }
+}
+
+void SynthesisTask::enumeratePrograms() {
+    if (enum_node_map.size() == 0) {
+        for (int i = 0; i < graph->minimal_context_list.size(); i++) {
+            const auto& node = graph->minimal_context_list[i];
+            for (const auto& edge: node.edge_list) {
+                auto& v = edge->v;
+                std::vector<std::vector<VSANode*>> all_nodes(v.size());
+                auto _unused = std::vector<VSANode*>();
+                enumerateNodes(0, v, _unused, all_nodes);
+            }
+        }
+    } else {
+
     }
 }

@@ -53,6 +53,7 @@ int main(int argc, char** argv) {
     LOG(INFO) << "Synthesizing" << std::endl;
     auto start_time = clock();
     SynthesisTask task(graph, spec);
+    // task.graph->printUpperBound();
     auto* result = task.solve();
     double time_cost = (clock() - start_time) * 1.0 / CLOCKS_PER_SEC;
     LOG(INFO) << "Result: " << result->toString() << std::endl;
