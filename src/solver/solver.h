@@ -61,10 +61,10 @@ private:
     std::vector<ParamInfo*> param_info_list;
     std::unordered_map<std::string, VSANode*> combined_node_map;
     std::vector<std::unordered_map<std::string, VSANode*>> single_node_map;
-    std::unordered_map<std::string, VSANode*> enum_node_map;
+    std::vector<std::unordered_map<std::string, VSANode*>> enum_node_map;
 
-    void enumeratePrograms();
-    void enumerateNodes(int pos, std::vector<int> v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret);
+    void enumeratePrograms(int example_id);
+    void enumerateNodes(int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret);
     Program* synthesisProgramFromExample();
     Program* getBestProgramWithoutOup(int state);
     void verifyResult(int start_state, VSANode *result);

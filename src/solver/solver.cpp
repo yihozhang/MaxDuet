@@ -383,29 +383,48 @@ Program * SynthesisTask::solve() {
     }
 }
 
-void SynthesisTask::enumerateNodes(int pos, std::vector<int> v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret) {
+void SynthesisTask::enumerateNodes(
+    int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, 
+    std::vector<std::vector<VSANode*>>& ret
+) {
+
     if (pos == v.size()) {
         ret.push_back(std::vector<VSANode*>(curr));
     } else {
         int state = v[pos];
-        for (const Node& node: graph->minimal_context_list[state]) {
-            
+        for (const auto& entry: enum_node_map[state]) {
+            curr[pos] = entry.second;
+            enumerateNodes(pos + 1, v, curr, ret);
         }
     }
 }
 
-void SynthesisTask::enumeratePrograms() {
+void SynthesisTask::enumeratePrograms(int example_id) {
     if (enum_node_map.size() == 0) {
+
+    } else {
         for (int i = 0; i < graph->minimal_context_list.size(); i++) {
             const auto& node = graph->minimal_context_list[i];
             for (const auto& edge: node.edge_list) {
                 auto& v = edge->v;
-                std::vector<std::vector<VSANode*>> all_nodes(v.size());
-                auto _unused = std::vector<VSANode*>();
+                std::vector<std::vector<VSANode*>> all_nodes;
+                auto _unused = std::vector<VSANode*>(v.size());
                 enumerateNodes(0, v, _unused, all_nodes);
+                for (auto node: all_nodes) {
+                    Semantics* semantics = edge->rule->semantics;
+                    std::vector<Program*> subprograms(node.size());
+                    for (int i = 0; i < node.size(); i++) {
+                        subprograms[i] = node[i]->best_program;
+                    }
+                    Program* program = new Program(subprograms, semantics);
+
+                    StateValue sv;
+                    for (int i = 0; i < example_id; i++) {
+                        Data oup = program->run(example_list[i]->inp);
+                        sv.push_back({oup});
+                    }
+                }
             }
         }
-    } else {
-
     }
 }
