@@ -9,5 +9,5 @@ spath=${path//\//\\\/}
 sed -i "s/SOURCEPATH/\"${spath}\"/g" basic/config.cpp
 popd
 pushd build
-cmake ../src
+cmake -DCMAKE_BUILD_TYPE=Debug ../src
 make

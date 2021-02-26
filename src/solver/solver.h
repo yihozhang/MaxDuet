@@ -61,18 +61,19 @@ private:
     std::vector<ParamInfo*> param_info_list;
     std::unordered_map<std::string, VSANode*> combined_node_map;
     std::vector<std::unordered_map<std::string, VSANode*>> single_node_map;
-    std::vector<std::unordered_map<std::string, VSANode*>> enum_node_map;
 
-    void enumeratePrograms(int example_id);
-    void enumerateNodes(int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret);
     Program* synthesisProgramFromExample();
     Program* getBestProgramWithoutOup(int state);
     void verifyResult(int start_state, VSANode *result);
     void verifyExampleResult(VSANode* node, int example_id);
     bool getBestProgramWithOup(VSANode* node, int example_id, double limit);
     VSANode* initNode(int state, const StateValue& value, int example_id);
-    void addNewExample(Example* example);
     void buildEdge(VSANode* node, int example_id);
+public:
+    void addNewExample(Example* example);
+    std::vector<std::unordered_map<std::string, VSANode*>> enum_node_map;
+    void enumeratePrograms(int example_id);
+    void enumerateNodes(int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret);
 public:
     MinimalContextGraph* graph;
     Specification* spec;
@@ -80,6 +81,7 @@ public:
 
     double calculateProbability(int state, Program* program);
     SynthesisTask(MinimalContextGraph* _graph, Specification* _spec): graph(_graph), spec(_spec), value_limit(-5) {
+        enum_node_map.resize(graph->minimal_context_list.size());
     }
 
     Program* solve();

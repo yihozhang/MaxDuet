@@ -1,6 +1,6 @@
 #include "config.h"
 
-const std::string config::KSourcePath = "/mnt/c/Users/zyh38/Documents/MaxFlash/src";
+const std::string config::KSourcePath = "/home/yihongzhang/MaxDuet/src";
 const std::string config::KParserMainPath = KSourcePath + "/parser/python/main.py";
 double config::KDefaultP = 0.001;
 SpecType global::spec_type = S_NONE;

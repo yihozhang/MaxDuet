@@ -53,18 +53,47 @@ int main(int argc, char** argv) {
     LOG(INFO) << "Synthesizing" << std::endl;
     auto start_time = clock();
     SynthesisTask task(graph, spec);
-    // task.graph->printUpperBound();
-    auto* result = task.solve();
-    double time_cost = (clock() - start_time) * 1.0 / CLOCKS_PER_SEC;
-    LOG(INFO) << "Result: " << result->toString() << std::endl;
-    LOG(INFO) << "Time Cost: " << time_cost << std::endl;
-    if (!output_file.empty()) {
-        auto *F = std::fopen(output_file.c_str(), "w");
-        fprintf(F, "%s\n", result->toString().c_str());
-        fprintf(F, "%.10lf\n", time_cost);
-    } else if (!log_file.empty()) {
-        std::cout << "Result: " << result->toString() << std::endl;
-        std::cout << "Time Cost: " << time_cost << std::endl;
+    task.addNewExample(spec->example_space[0]);
+    task.addNewExample(spec->example_space[1]);
+    task.enumeratePrograms(2);
+    {
+        const auto& maps = task.enum_node_map;
+        std::cout << "enum1" << std::endl;
+        for (int i = 0; i < maps.size(); i++) {
+            std::cout << "state: " << i << std::endl;
+            for (auto& entry: maps[i]) {
+                std::cout << entry.first << " " << entry.second->state << " ";
+                entry.second->best_program->print();
+                // std::cout <<  " ";
+                // entry.second->print();
+                // std::cout << std::endl;
+            }
+        }
     }
+    
+    task.enumeratePrograms(2);
+    {
+        const auto& maps = task.enum_node_map;
+        std::cout << "enum2" << std::endl;
+        for (int i = 0; i < maps.size(); i++) {
+            std::cout << "state: " << i << std::endl;
+            for (auto& entry: maps[i]) {
+                std::cout << entry.first << " " << entry.second->state << " ";
+                entry.second->best_program->print();
+            }
+        }
+    }
+    // auto* result = task.solve();
+    // double time_cost = (clock() - start_time) * 1.0 / CLOCKS_PER_SEC;
+    // LOG(INFO) << "Result: " << result->toString() << std::endl;
+    // LOG(INFO) << "Time Cost: " << time_cost << std::endl;
+    // if (!output_file.empty()) {
+    //     auto *F = std::fopen(output_file.c_str(), "w");
+    //     fprintf(F, "%s\n", result->toString().c_str());
+    //     fprintf(F, "%.10lf\n", time_cost);
+    // } else if (!log_file.empty()) {
+    //     std::cout << "Result: " << result->toString() << std::endl;
+    //     std::cout << "Time Cost: " << time_cost << std::endl;
+    // }
 } 
 

@@ -152,13 +152,13 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
 }
 
 void SynthesisTask::VSAEdge::print() {
-    std::cerr << "Edge " << semantics->name << " " << rule_w << " " << updateW() << std::endl;
-    for (auto* node: v) std::cerr << encodeFeature(node->state, node->value) << " "; std::cerr << std::endl;
+    std::cout << "Edge " << semantics->name << " " << rule_w << " " << updateW() << std::endl;
+    for (auto* node: v) std::cout << encodeFeature(node->state, node->value) << " "; std::cerr << std::endl;
 }
 
 void SynthesisTask::VSANode::print() {
-    std::cerr << "Node " << encodeFeature(state, value) << std::endl;
-    for (auto* edge: edge_list) edge->print();
+    std::cout << "Node " << encodeFeature(state, value) << std::endl;
+    // for (auto* edge: edge_list) edge->print();
 }
 
 #define TRIVIAL_BOUND(node) (graph->minimal_context_list[node->state].upper_bound)
@@ -356,14 +356,14 @@ Program * SynthesisTask::solve() {
     LOG(INFO) << "New example: " << spec->example_space[0]->toString() << std::endl;
     while (1) {
         Program* result = synthesisProgramFromExample();
-        if (combined_node_map.size() > 100) {
-            for (const auto& node: combined_node_map)  {
-                auto& context_node = graph->minimal_context_list[node.second->state];
-                std::cerr << context_node.symbol->name << " " << context_node.minimal_context->encodeContext() << std::endl;
-                node.second->print();
-            }
-            return nullptr;
-        }
+        // if (combined_node_map.size() > 100) {
+        //     for (const auto& node: combined_node_map)  {
+        //         auto& context_node = graph->minimal_context_list[node.second->state];
+        //         std::cerr << context_node.symbol->name << " " << context_node.minimal_context->encodeContext() << std::endl;
+        //         node.second->print();
+        //     }
+        //     return nullptr;
+        // }
         LOG(INFO) << "Program: " << result->toString() << "; Log-prob: " << calculateProbability(0, result) << std::endl;
         for (int i = 0; i < example_list.size(); ++i) {
 #ifdef DEBUG
@@ -400,31 +400,49 @@ void SynthesisTask::enumerateNodes(
 }
 
 void SynthesisTask::enumeratePrograms(int example_id) {
-    if (enum_node_map.size() == 0) {
+    // if (enum_node_map.size() == 0) {
 
-    } else {
-        for (int i = 0; i < graph->minimal_context_list.size(); i++) {
-            const auto& node = graph->minimal_context_list[i];
-            for (const auto& edge: node.edge_list) {
-                auto& v = edge->v;
-                std::vector<std::vector<VSANode*>> all_nodes;
-                auto _unused = std::vector<VSANode*>(v.size());
-                enumerateNodes(0, v, _unused, all_nodes);
-                for (auto node: all_nodes) {
-                    Semantics* semantics = edge->rule->semantics;
-                    std::vector<Program*> subprograms(node.size());
-                    for (int i = 0; i < node.size(); i++) {
-                        subprograms[i] = node[i]->best_program;
-                    }
-                    Program* program = new Program(subprograms, semantics);
-
-                    StateValue sv;
-                    for (int i = 0; i < example_id; i++) {
-                        Data oup = program->run(example_list[i]->inp);
-                        sv.push_back({oup});
-                    }
+    // } else {
+    std::vector<std::unordered_map<std::string, VSANode*>> delta_enum_node_map(enum_node_map.size());
+    for (int i = 0; i < graph->minimal_context_list.size(); i++) {
+        const auto& node = graph->minimal_context_list[i];
+        for (const auto& edge: node.edge_list) {
+            auto& v = edge->v;
+            std::vector<std::vector<VSANode*>> all_nodes;
+            auto _unused = std::vector<VSANode*>(v.size());
+            enumerateNodes(0, v, _unused, all_nodes);
+            for (auto subnodes: all_nodes) {
+                Semantics* semantics = edge->rule->semantics;
+                std::vector<Program*> subprograms(subnodes.size());
+                for (int j = 0; j < subnodes.size(); j++) {
+                    subprograms[j] = subnodes[j]->best_program;
                 }
+                Program* program = new Program(subprograms, semantics);
+
+                StateValue sv;
+                for (int j = 0; j < example_id; j++) {
+                    Data oup = program->run(example_list[j]->inp);
+                    sv.push_back({oup});
+                }
+                std::string feature = encodeFeature(i, sv);
+                if (!combined_node_map.count(feature)) {
+                    combined_node_map[feature] = new VSANode(i, sv, node.upper_bound);
+                }
+                VSANode* vsanode = combined_node_map[feature];
+                // otherwise there's already an *optimal* program
+                if (vsanode->best_program == nullptr) {
+                    vsanode->best_program = program;
+                    vsanode->edge_list.clear();
+                    vsanode->edge_list.push_back(new VSAEdge(subnodes, semantics, edge->w));
+                    vsanode->is_build_edge = true;
+                    vsanode->updateP();
+                }
+                delta_enum_node_map[i][feature] = vsanode;
             }
         }
+    }
+
+    for (int i = 0; i < delta_enum_node_map.size(); i++) {
+        enum_node_map[i].insert(delta_enum_node_map[i].begin(), delta_enum_node_map[i].end());
     }
 }

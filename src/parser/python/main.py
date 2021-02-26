@@ -216,6 +216,7 @@ def formalize_bmExpr(bm_expr):
     return result
 
 if __name__ == "__main__":
+    print(sys.argv)
     assert len(sys.argv) == 4
     file_name = sys.argv[1]
     benchmark_name = sys.argv[2]
