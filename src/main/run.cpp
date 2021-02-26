@@ -53,6 +53,7 @@ int main(int argc, char** argv) {
     LOG(INFO) << "Synthesizing" << std::endl;
     auto start_time = clock();
     SynthesisTask task(graph, spec);
+#ifdef MY_DEBUG
     task.addNewExample(spec->example_space[0]);
     task.addNewExample(spec->example_space[1]);
     task.enumeratePrograms(2);
@@ -83,17 +84,18 @@ int main(int argc, char** argv) {
             }
         }
     }
-    // auto* result = task.solve();
-    // double time_cost = (clock() - start_time) * 1.0 / CLOCKS_PER_SEC;
-    // LOG(INFO) << "Result: " << result->toString() << std::endl;
-    // LOG(INFO) << "Time Cost: " << time_cost << std::endl;
-    // if (!output_file.empty()) {
-    //     auto *F = std::fopen(output_file.c_str(), "w");
-    //     fprintf(F, "%s\n", result->toString().c_str());
-    //     fprintf(F, "%.10lf\n", time_cost);
-    // } else if (!log_file.empty()) {
-    //     std::cout << "Result: " << result->toString() << std::endl;
-    //     std::cout << "Time Cost: " << time_cost << std::endl;
-    // }
+#endif
+    auto* result = task.solve();
+    double time_cost = (clock() - start_time) * 1.0 / CLOCKS_PER_SEC;
+    LOG(INFO) << "Result: " << result->toString() << std::endl;
+    LOG(INFO) << "Time Cost: " << time_cost << std::endl;
+    if (!output_file.empty()) {
+        auto *F = std::fopen(output_file.c_str(), "w");
+        fprintf(F, "%s\n", result->toString().c_str());
+        fprintf(F, "%.10lf\n", time_cost);
+    } else if (!log_file.empty()) {
+        std::cout << "Result: " << result->toString() << std::endl;
+        std::cout << "Time Cost: " << time_cost << std::endl;
+    }
 } 
 

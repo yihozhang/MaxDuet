@@ -165,6 +165,10 @@ void SynthesisTask::VSANode::print() {
 
 bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double limit) {
     static int ts = 0;
+    // std::cout << "visit " << encodeFeature(node->state, node->value) << std::endl;
+    // if (enum_node_map[node->state].count(encodeFeature(node->state, node->value))) {
+    //     std::cout << "HIT" << std::endl;
+    // }
     if (node->best_program != nullptr) return true;
     if (node->p < limit) return false;
     if (node->l != nullptr) {
@@ -337,7 +341,26 @@ Program* SynthesisTask::synthesisProgramFromExample() {
         value.push_back({example->oup});
     }
     VSANode* node = initNode(0, value, example_list.size() - 1);
+    enumeratePrograms(example_list.size() - 1);
+    printEnumSize();
+    // {
+    //     const auto& maps = enum_node_map;
+    //     std::cout << "enum1" << std::endl;
+    //     for (int i = 0; i < maps.size(); i++) {
+    //         std::cout << "state: " << i << std::endl;
+    //         for (auto& entry: maps[i]) {
+    //             std::cout << entry.first << " " << entry.second->state << " ";
+    //             entry.second->best_program->print();
+    //             // std::cout <<  " ";
+    //             // entry.second->print();
+    //             // std::cout << std::endl;
+    //         }
+    //     }
+    // }
     while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
+        std::cerr << "start enumerating" << std::endl;
+        enumeratePrograms(example_list.size() - 1);
+        printEnumSize();
         value_limit -= 3;
         if (value_limit < -1000) {
             LOG(INFO) << "No valid program found" << std::endl;
@@ -356,14 +379,6 @@ Program * SynthesisTask::solve() {
     LOG(INFO) << "New example: " << spec->example_space[0]->toString() << std::endl;
     while (1) {
         Program* result = synthesisProgramFromExample();
-        // if (combined_node_map.size() > 100) {
-        //     for (const auto& node: combined_node_map)  {
-        //         auto& context_node = graph->minimal_context_list[node.second->state];
-        //         std::cerr << context_node.symbol->name << " " << context_node.minimal_context->encodeContext() << std::endl;
-        //         node.second->print();
-        //     }
-        //     return nullptr;
-        // }
         LOG(INFO) << "Program: " << result->toString() << "; Log-prob: " << calculateProbability(0, result) << std::endl;
         for (int i = 0; i < example_list.size(); ++i) {
 #ifdef DEBUG
@@ -420,7 +435,7 @@ void SynthesisTask::enumeratePrograms(int example_id) {
                 Program* program = new Program(subprograms, semantics);
 
                 StateValue sv;
-                for (int j = 0; j < example_id; j++) {
+                for (int j = 0; j <= example_id; j++) {
                     Data oup = program->run(example_list[j]->inp);
                     sv.push_back({oup});
                 }

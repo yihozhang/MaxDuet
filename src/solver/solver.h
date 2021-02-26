@@ -1,6 +1,7 @@
 #ifndef L2S_SOLVER_H
 #define L2S_SOLVER_H
 
+#include <iostream>
 #include <config.h>
 #include "context_maintainer.h"
 #include "specification.h"
@@ -74,6 +75,13 @@ public:
     std::vector<std::unordered_map<std::string, VSANode*>> enum_node_map;
     void enumeratePrograms(int example_id);
     void enumerateNodes(int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret);
+    void printEnumSize() {
+        int tot = 0;
+        for (auto& map: enum_node_map) {
+            tot += map.size();
+        }
+        std::cout << "enum size: "  << tot << std::endl;
+    }
 public:
     MinimalContextGraph* graph;
     Specification* spec;
