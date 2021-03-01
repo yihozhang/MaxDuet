@@ -73,8 +73,9 @@ private:
 public:
     void addNewExample(Example* example);
     std::vector<std::unordered_map<std::string, VSANode*>> enum_node_map;
-    void enumeratePrograms(int example_id);
-    void enumerateNodes(int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret);
+    std::vector<std::vector<std::vector<VSANode*>>> node_pool;
+    void enumeratePrograms(int example_id, int prog_size);
+    void enumerateNodes(int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret, int prog_size);
     void printEnumSize() {
         int tot = 0;
         for (auto& map: enum_node_map) {
@@ -90,6 +91,10 @@ public:
     double calculateProbability(int state, Program* program);
     SynthesisTask(MinimalContextGraph* _graph, Specification* _spec): graph(_graph), spec(_spec), value_limit(-5) {
         enum_node_map.resize(graph->minimal_context_list.size());
+        node_pool.resize(graph->minimal_context_list.size());
+        for (int i = 0; i < node_pool.size(); i++) {
+            node_pool[i].emplace_back();
+        }
     }
 
     Program* solve();

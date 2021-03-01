@@ -89,7 +89,11 @@ public:
         std::string s = input_list[1].getString();
         std::string t = input_list[2].getString();
         std::vector<int> occur;
-        for (auto i = result.find(s, 0); i != std::string::npos; i = result.find(s, i + t.length())) {
+        if (s == "") {
+            return Data(new StringValue(t + result));
+        }
+        auto i = result.find(s, 0);
+        if (i != std::string::npos) {
             result.replace(i, s.length(), t);
         }
         return Data(new StringValue(result));

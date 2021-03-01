@@ -341,7 +341,9 @@ Program* SynthesisTask::synthesisProgramFromExample() {
         value.push_back({example->oup});
     }
     VSANode* node = initNode(0, value, example_list.size() - 1);
-    enumeratePrograms(example_list.size() - 1);
+    int enum_prog_size = 1;
+    for (int i = 1; i <= 3; i++) enumeratePrograms(example_list.size() - 1, enum_prog_size++);
+    // enumeratePrograms(example_list.size() - 1, enum_prog_size++);
     printEnumSize();
     // {
     //     const auto& maps = enum_node_map;
@@ -358,9 +360,8 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     //     }
     // }
     while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
+        // enumeratePrograms(example_list.size() - 1, enum_prog_size++);
         std::cerr << "start enumerating" << std::endl;
-        enumeratePrograms(example_list.size() - 1);
-        printEnumSize();
         value_limit -= 3;
         if (value_limit < -1000) {
             LOG(INFO) << "No valid program found" << std::endl;
@@ -400,32 +401,38 @@ Program * SynthesisTask::solve() {
 
 void SynthesisTask::enumerateNodes(
     int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, 
-    std::vector<std::vector<VSANode*>>& ret
+    std::vector<std::vector<VSANode*>>& ret,
+    int prog_size
 ) {
 
     if (pos == v.size()) {
         ret.push_back(std::vector<VSANode*>(curr));
     } else {
         int state = v[pos];
-        for (const auto& entry: enum_node_map[state]) {
-            curr[pos] = entry.second;
-            enumerateNodes(pos + 1, v, curr, ret);
+        for (int curr_size = 1; curr_size <= prog_size - (((int) v.size()) - pos - 1); curr_size++) {
+            // std::cout << curr_size << std::endl;
+            // for (const auto& entry: enum_node_map[state][curr_size]) {
+            for (auto node: node_pool[state][curr_size]) {
+                curr[pos] = node;
+                enumerateNodes(pos + 1, v, curr, ret, prog_size - curr_size);
+            }
         }
     }
 }
 
-void SynthesisTask::enumeratePrograms(int example_id) {
-    // if (enum_node_map.size() == 0) {
-
-    // } else {
+void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
     std::vector<std::unordered_map<std::string, VSANode*>> delta_enum_node_map(enum_node_map.size());
     for (int i = 0; i < graph->minimal_context_list.size(); i++) {
+        // add a new entry for size=prog_size to the pool;
+        node_pool[i].emplace_back();
         const auto& node = graph->minimal_context_list[i];
         for (const auto& edge: node.edge_list) {
             auto& v = edge->v;
             std::vector<std::vector<VSANode*>> all_nodes;
             auto _unused = std::vector<VSANode*>(v.size());
-            enumerateNodes(0, v, _unused, all_nodes);
+            // minus 1 to account for the size of op
+            enumerateNodes(0, v, _unused, all_nodes, prog_size - 1);
+            // std::cerr << all_nodes.size() << std::endl;
             for (auto subnodes: all_nodes) {
                 Semantics* semantics = edge->rule->semantics;
                 std::vector<Program*> subprograms(subnodes.size());
@@ -453,11 +460,23 @@ void SynthesisTask::enumeratePrograms(int example_id) {
                     vsanode->updateP();
                 }
                 delta_enum_node_map[i][feature] = vsanode;
+                if (!enum_node_map[i].count(feature)) {
+                    node_pool[i][prog_size].push_back(vsanode);
+                }
             }
+            // std::cerr << std::endl;
         }
     }
 
     for (int i = 0; i < delta_enum_node_map.size(); i++) {
         enum_node_map[i].insert(delta_enum_node_map[i].begin(), delta_enum_node_map[i].end());
     }
+
+    int tot = 0;
+    for (auto& nodes: node_pool) {
+        for (auto& sized_nodes: nodes) {
+            tot += sized_nodes.size();
+        }
+    }
+    LOG(INFO) << "enumerated size = " << tot << " for size " << prog_size << std::endl;
 }
