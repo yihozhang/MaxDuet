@@ -7,6 +7,7 @@
 #include "specification_parser.h"
 #include "minimal_context_graph.h"
 #include "solver.h"
+#include "config.h"
 
 #include <ctime>
 #include <gflags/gflags.h>

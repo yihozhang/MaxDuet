@@ -151,12 +151,12 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
     }
 }
 
-void SynthesisTask::VSAEdge::print() {
+void VSAEdge::print() {
     std::cout << "Edge " << semantics->name << " " << rule_w << " " << updateW() << std::endl;
     for (auto* node: v) std::cout << encodeFeature(node->state, node->value) << " "; std::cerr << std::endl;
 }
 
-void SynthesisTask::VSANode::print() {
+void VSANode::print() {
     std::cout << "Node " << encodeFeature(state, value) << std::endl;
     // for (auto* edge: edge_list) edge->print();
 }
@@ -299,7 +299,7 @@ bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double 
     return false;
 }
 
-void SynthesisTask::verifyExampleResult(SynthesisTask::VSANode *node, int example_id) {
+void SynthesisTask::verifyExampleResult(VSANode *node, int example_id) {
     int l = 0, r = 0;
     if (example_id <= 0) {
         l = r = -example_id;
@@ -319,7 +319,7 @@ void SynthesisTask::verifyExampleResult(SynthesisTask::VSANode *node, int exampl
     }
 }
 
-SynthesisTask::VSANode* SynthesisTask::initNode(int state, const StateValue& value, int example_id) {
+VSANode* SynthesisTask::initNode(int state, const StateValue& value, int example_id) {
     std::string feature = encodeFeature(state, value);
     auto& cache = example_id > 0 ? combined_node_map : single_node_map[-example_id];
     auto*& result = cache[feature];
@@ -412,7 +412,7 @@ void SynthesisTask::enumerateNodes(
         for (int curr_size = 1; curr_size <= prog_size - (((int) v.size()) - pos - 1); curr_size++) {
             // std::cout << curr_size << std::endl;
             // for (const auto& entry: enum_node_map[state][curr_size]) {
-            for (auto node: node_pool[state][curr_size]) {
+            for (auto node: global::string_info->node_pool[state][curr_size]) {
                 curr[pos] = node;
                 enumerateNodes(pos + 1, v, curr, ret, prog_size - curr_size);
             }
@@ -421,6 +421,8 @@ void SynthesisTask::enumerateNodes(
 }
 
 void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
+    auto& enum_node_map = global::string_info->enum_node_map;
+    auto& node_pool = global::string_info->node_pool;
     std::vector<std::unordered_map<std::string, VSANode*>> delta_enum_node_map(enum_node_map.size());
     for (int i = 0; i < graph->minimal_context_list.size(); i++) {
         // add a new entry for size=prog_size to the pool;
@@ -479,4 +481,29 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
         }
     }
     LOG(INFO) << "enumerated size = " << tot << " for size " << prog_size << std::endl;
+}
+
+SynthesisTask::SynthesisTask(MinimalContextGraph* _graph, Specification* _spec): graph(_graph), spec(_spec), value_limit(-5) {
+    global::string_info->enum_node_map.resize(graph->minimal_context_list.size());
+    global::string_info->node_pool.resize(graph->minimal_context_list.size());
+    for (int i = 0; i < global::string_info->node_pool.size(); i++) {
+        global::string_info->node_pool[i].emplace_back();
+    }
+}
+
+
+void SynthesisTask::printEnumSize() {
+    int tot = 0;
+    for (auto& map: global::string_info->enum_node_map) {
+        tot += map.size();
+    }
+    std::cout << "enum size: "  << tot << std::endl;
+}
+
+double VSAEdge::updateW() {
+    w = rule_w;
+    for (auto* sub_node: v) {
+        w += sub_node->p;
+    }
+    return w;
 }
