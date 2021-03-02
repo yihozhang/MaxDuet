@@ -1,7 +1,7 @@
 #include "semantics_factory.h"
 #include "config.h"
 #include "matrix_operator.h"
-
+#include <string>
 #include <unordered_set>
 
 namespace {
@@ -70,6 +70,16 @@ Semantics* string2Semantics(std::string name) {
     return semantics_map[name];
 }
 
+int strlcp(const std::string& a, const std::string& b) {
+    int sz = std::min(a.size(), b.size());
+    for (int i = 0; i < sz; i++) {
+        if (a[i] != b[i]) {
+            return i;
+        }
+    }
+    return sz;
+}
+
 WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_info) {
     if (oup.size() == 0) {
         return {{{}, {}}};
@@ -79,19 +89,37 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
 #endif
     std::string s = oup[0].getString();
     int n = s.length();
-    WitnessList result(n + 1);
+    std::vector<int> should_emit(n + 1);
+    int result_size = 0;
+    auto* string_info = dynamic_cast<StringInfo*>(global_info);
+    for (const auto& enum_nodes_entry: string_info->enum_node_map) {
+        for (const auto& node_entry: enum_nodes_entry) {
+            int lcp_pos = strlcp(node_entry.first, s);
+            if (0 < lcp_pos && lcp_pos < n) {
+                result_size += !should_emit[lcp_pos];
+                should_emit[lcp_pos] = 1;
+            }
+        }
+    }
+
+    WitnessList result(result_size);
     std::string now;
+    int j = 0;
     for (int i = 0; i < n; ++i) {
-        result[i].push_back({Data(new StringValue(now))});
+        if (should_emit[i]) {
+            result[j++].push_back({Data(new StringValue(now))});
+        }
         now += s[i];
     }
-    result[n].push_back({Data(new StringValue(now))});
+    assert(j == result.size());
     now = "";
-    result[n].push_back({Data(new StringValue(now))});
     for (int i = n - 1; i >= 0; --i) {
         now = s[i] + now;
-        result[i].push_back({Data(new StringValue(now))});
+        if (should_emit[i]) {
+            result[--j].push_back({Data(new StringValue(now))});
+        }
     }
+    assert(j == 0);
     return result;
 }
 

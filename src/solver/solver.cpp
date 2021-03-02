@@ -100,6 +100,7 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
                 assert(result_term.size() == graph_edge->rule->param_list.size());
 #endif
                 std::vector<VSANode*> sub_node;
+                // std::cout << "result_term.size(): " << result_term.size() << std::endl;
                 for (int i = 0; i < result_term.size(); ++i) {
                     sub_node.push_back(initNode(graph_edge->v[i], {result_term[i]}, example_id));
                 }
