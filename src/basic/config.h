@@ -29,8 +29,10 @@ public:
     std::unordered_set<std::string> const_set;  // The set of all possible contants.
     std::unordered_map<std::string, std::string> const_cache;   // Cache the abstracted name of constants.
     std::vector<int> int_const; // All possible integer constants.
-    std::vector<std::unordered_map<std::string, VSANode*> > enum_node_map;
-    std::vector<std::vector<std::vector<VSANode*> > > node_pool;
+    // state -> feature -> node
+    std::vector<std::unordered_map<std::string, VSANode*>> enum_node_map;
+    // state -> size -> node
+    std::vector<std::vector<std::vector<VSANode*>>> node_pool;
     Specification* spec;
     void setInp(const DataList& _inp) {
         param_value.clear();

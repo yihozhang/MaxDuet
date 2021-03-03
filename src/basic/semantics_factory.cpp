@@ -91,6 +91,7 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
     int n = s.length();
     std::vector<int> should_emit(n + 1);
     int result_size = 0;
+    // TODO: this is wrong!!!
     auto* string_info = dynamic_cast<StringInfo*>(global_info);
     for (const auto& enum_nodes_entry: string_info->enum_node_map) {
         for (const auto& node_entry: enum_nodes_entry) {

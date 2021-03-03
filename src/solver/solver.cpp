@@ -343,26 +343,12 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     }
     VSANode* node = initNode(0, value, example_list.size() - 1);
     int enum_prog_size = 1;
-    for (int i = 1; i <= 3; i++) enumeratePrograms(example_list.size() - 1, enum_prog_size++);
-    // enumeratePrograms(example_list.size() - 1, enum_prog_size++);
-    printEnumSize();
-    // {
-    //     const auto& maps = enum_node_map;
-    //     std::cout << "enum1" << std::endl;
-    //     for (int i = 0; i < maps.size(); i++) {
-    //         std::cout << "state: " << i << std::endl;
-    //         for (auto& entry: maps[i]) {
-    //             std::cout << entry.first << " " << entry.second->state << " ";
-    //             entry.second->best_program->print();
-    //             // std::cout <<  " ";
-    //             // entry.second->print();
-    //             // std::cout << std::endl;
-    //         }
-    //     }
-    // }
+    clearEnumPool();
+    enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
+    enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
+    enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
-        // enumeratePrograms(example_list.size() - 1, enum_prog_size++);
-        std::cerr << "start enumerating" << std::endl;
+        // std::cerr << "start enumerating" << std::endl;
         value_limit -= 3;
         if (value_limit < -1000) {
             LOG(INFO) << "No valid program found" << std::endl;
@@ -371,6 +357,14 @@ Program* SynthesisTask::synthesisProgramFromExample() {
         LOG(INFO) << "Relaxed the global lowerbound to " << value_limit << std::endl;
     }
     return node->best_program;
+}
+
+void SynthesisTask::clearEnumPool() {
+    for (int i = 0; i < global::string_info->node_pool.size(); i++) {
+        global::string_info->node_pool[i].clear();
+        global::string_info->node_pool[i].emplace_back();
+        global::string_info->enum_node_map[i].clear();
+    }
 }
 
 Program * SynthesisTask::solve() {
@@ -422,6 +416,8 @@ void SynthesisTask::enumerateNodes(
 }
 
 void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
+    assert(example_id <= 0);
+    example_id = -example_id;
     auto& enum_node_map = global::string_info->enum_node_map;
     auto& node_pool = global::string_info->node_pool;
     std::vector<std::unordered_map<std::string, VSANode*>> delta_enum_node_map(enum_node_map.size());
@@ -444,16 +440,13 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
                 }
                 Program* program = new Program(subprograms, semantics);
 
-                StateValue sv;
-                for (int j = 0; j <= example_id; j++) {
-                    Data oup = program->run(example_list[j]->inp);
-                    sv.push_back({oup});
-                }
+                Data oup = program->run(example_list[example_id]->inp);
+                StateValue sv = {{oup}};
                 std::string feature = encodeFeature(i, sv);
-                if (!combined_node_map.count(feature)) {
-                    combined_node_map[feature] = new VSANode(i, sv, node.upper_bound);
+                if (!single_node_map[example_id].count(feature)) {
+                    single_node_map[example_id][feature] = new VSANode(i, sv, node.upper_bound);
                 }
-                VSANode* vsanode = combined_node_map[feature];
+                VSANode* vsanode = single_node_map[example_id][feature];
                 // otherwise there's already an *optimal* program
                 if (vsanode->best_program == nullptr) {
                     vsanode->best_program = program;
@@ -462,12 +455,12 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
                     vsanode->is_build_edge = true;
                     vsanode->updateP();
                 }
-                delta_enum_node_map[i][feature] = vsanode;
-                if (!enum_node_map[i].count(feature)) {
+                std::string oup_feature = oup.toString();
+                delta_enum_node_map[i][oup_feature] = vsanode;
+                if (!enum_node_map[i].count(oup_feature)) {
                     node_pool[i][prog_size].push_back(vsanode);
                 }
             }
-            // std::cerr << std::endl;
         }
     }
 
@@ -499,6 +492,15 @@ void SynthesisTask::printEnumSize() {
         tot += map.size();
     }
     std::cout << "enum size: "  << tot << std::endl;
+}
+
+void SynthesisTask::printEnums() {
+    for (auto& map: global::string_info->enum_node_map) {
+        for (auto& entry: map) {
+            std::cout << entry.first << ": ";
+            entry.second->best_program->print();
+        }
+    }
 }
 
 double VSAEdge::updateW() {

@@ -68,6 +68,8 @@ public:
     void enumeratePrograms(int example_id, int prog_size);
     void enumerateNodes(int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret, int prog_size);
     void printEnumSize();
+    void printEnums();
+    void clearEnumPool();
 public:
     MinimalContextGraph* graph;
     Specification* spec;
