@@ -166,10 +166,6 @@ void VSANode::print() {
 
 bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double limit) {
     static int ts = 0;
-    // std::cout << "visit " << encodeFeature(node->state, node->value) << std::endl;
-    // if (enum_node_map[node->state].count(encodeFeature(node->state, node->value))) {
-    //     std::cout << "HIT" << std::endl;
-    // }
     if (node->best_program != nullptr) return true;
     if (node->p < limit) return false;
     if (node->l != nullptr) {
@@ -346,6 +342,7 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     clearEnumPool();
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
+    // printEnums();
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
         // std::cerr << "start enumerating" << std::endl;
@@ -363,8 +360,8 @@ void SynthesisTask::clearEnumPool() {
     for (int i = 0; i < global::string_info->node_pool.size(); i++) {
         global::string_info->node_pool[i].clear();
         global::string_info->node_pool[i].emplace_back();
-        global::string_info->enum_node_map[i].clear();
     }
+    global::string_info->enum_node_map.clear();
 }
 
 Program * SynthesisTask::solve() {
@@ -420,7 +417,7 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
     example_id = -example_id;
     auto& enum_node_map = global::string_info->enum_node_map;
     auto& node_pool = global::string_info->node_pool;
-    std::vector<std::unordered_map<std::string, VSANode*>> delta_enum_node_map(enum_node_map.size());
+    std::vector<std::unordered_map<std::string, VSANode*>> delta_enum_node_map(graph->minimal_context_list.size());
     for (int i = 0; i < graph->minimal_context_list.size(); i++) {
         // add a new entry for size=prog_size to the pool;
         node_pool[i].emplace_back();
@@ -456,16 +453,15 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
                     vsanode->updateP();
                 }
                 std::string oup_feature = oup.toString();
-                delta_enum_node_map[i][oup_feature] = vsanode;
-                if (!enum_node_map[i].count(oup_feature)) {
+                if (!delta_enum_node_map[i].count(oup_feature)) {
+                    delta_enum_node_map[i][oup_feature] = vsanode;
                     node_pool[i][prog_size].push_back(vsanode);
                 }
             }
         }
     }
-
     for (int i = 0; i < delta_enum_node_map.size(); i++) {
-        enum_node_map[i].insert(delta_enum_node_map[i].begin(), delta_enum_node_map[i].end());
+        enum_node_map.insert(delta_enum_node_map[i].begin(), delta_enum_node_map[i].end());
     }
 
     int tot = 0;
@@ -478,7 +474,6 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
 }
 
 SynthesisTask::SynthesisTask(MinimalContextGraph* _graph, Specification* _spec): graph(_graph), spec(_spec), value_limit(-5) {
-    global::string_info->enum_node_map.resize(graph->minimal_context_list.size());
     global::string_info->node_pool.resize(graph->minimal_context_list.size());
     for (int i = 0; i < global::string_info->node_pool.size(); i++) {
         global::string_info->node_pool[i].emplace_back();
@@ -487,19 +482,13 @@ SynthesisTask::SynthesisTask(MinimalContextGraph* _graph, Specification* _spec):
 
 
 void SynthesisTask::printEnumSize() {
-    int tot = 0;
-    for (auto& map: global::string_info->enum_node_map) {
-        tot += map.size();
-    }
-    std::cout << "enum size: "  << tot << std::endl;
+    std::cout << "enum size: "  << global::string_info->enum_node_map.size() << std::endl;
 }
 
 void SynthesisTask::printEnums() {
-    for (auto& map: global::string_info->enum_node_map) {
-        for (auto& entry: map) {
-            std::cout << entry.first << ": ";
-            entry.second->best_program->print();
-        }
+    for (auto& entry: global::string_info->enum_node_map) {
+        std::cout << entry.first << ": ";
+        entry.second->best_program->print();
     }
 }
 

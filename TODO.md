@@ -1,0 +1,3 @@
+- [ ] support more witness functions
+- [ ] make a collective enum pool so that best_programs for accumulative examples can be found there
+- [ ] derive subnodes using witness function for multiple examples (currently the witness function only utilizes one example)

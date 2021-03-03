@@ -93,13 +93,11 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
     int result_size = 0;
     // TODO: this is wrong!!!
     auto* string_info = dynamic_cast<StringInfo*>(global_info);
-    for (const auto& enum_nodes_entry: string_info->enum_node_map) {
-        for (const auto& node_entry: enum_nodes_entry) {
-            int lcp_pos = strlcp(node_entry.first, s);
-            if (0 < lcp_pos && lcp_pos < n) {
-                result_size += !should_emit[lcp_pos];
-                should_emit[lcp_pos] = 1;
-            }
+    for (const auto& node_entry: string_info->enum_node_map) {
+        int lcp_pos = strlcp(node_entry.first, s);
+        if (0 < lcp_pos && lcp_pos < n) {
+            result_size += !should_emit[lcp_pos];
+            should_emit[lcp_pos] = 1;
         }
     }
 
@@ -219,17 +217,11 @@ WitnessList StringAt::witnessFunction(const DataList &oup, GlobalInfo *global_in
     // Assume the first input can only be constants or params
     char t = oup[0].getString()[0];
     WitnessList result;
-    for (int i = 0; i < info->size(); ++i) {
-        if ((*info)[i].getType() != TSTRING) continue;
-        std::string s = (*info)[i].getString();
+    for (auto& entry: info->enum_node_map) {
+        if (entry.first[0] != '\"') continue;
+        std::string s = entry.first.substr(1, entry.first.size() - 2);
         for (int j = 0; j < s.length(); ++j) {
             if (s[j] == t) result.push_back({{Data(new StringValue(s))}, {Data(new IntValue(j))}});
-        }
-    }
-    for (auto& const_data: info->const_list) {
-        std::string s = const_data.getString();
-        for (int j = 0; j < s.length(); ++j) {
-            if (s[j] == t) result.push_back({{const_data}, {Data(new IntValue(j))}});
         }
     }
     return result;
@@ -288,9 +280,11 @@ WitnessList StringSubstr::witnessFunction(const DataList &oup, GlobalInfo *globa
 #endif
     std::string oup_value = oup[0].getString();
     WitnessList result;
-    for (int i = 0; i < info->size(); ++i) {
-        if ((*info)[i].getType() != TSTRING) continue;
-        std::string param_value = (*info)[i].getString();
+    auto& enum_node_map = info->enum_node_map;
+    for (const auto& entry: enum_node_map) {
+        if (entry.first[0] != '\"') continue;
+        std::string param_value = entry.first.substr(1, entry.first.size() - 2);
+        // std::cout << param_value << " " << entry.first << std::endl;
         getAllChoice(param_value, oup_value, result);
     }
     return result;
@@ -398,9 +392,10 @@ WitnessList StringIndexOf::witnessFunction(const DataList &oup, GlobalInfo *glob
     int l = std::max(-1, res.first);
     int r = res.second;
     if (l > r) return {};
-    for (int i = 0; i < string_info->size(); ++i) {
-        if ((*string_info)[i].getType() != TSTRING) continue;
-        std::string s = (*string_info)[i].getString();
+    auto& enum_node_map = string_info->enum_node_map;
+    for (const auto& entry: enum_node_map) {
+        if (entry.first[0] != '\"') continue;
+        std::string s = entry.first.substr(1, entry.first.size() - 2);
         if (l == -1) {
             for (auto const_str: string_info->const_set) {
                 int l = getLastOccur(s, const_str, s.length());
