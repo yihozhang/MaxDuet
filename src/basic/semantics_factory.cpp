@@ -431,21 +431,22 @@ WitnessList StringPrefixOf::witnessFunction(const DataList &oup, GlobalInfo *glo
     assert(oup.size() == 1);
 #endif
     auto* info = dynamic_cast<StringInfo*>(global_info);
-    std::vector<Data> possible_list;
-    for (auto& s: info->const_list) {
-        if (s.getType() == TSTRING) possible_list.push_back(s);
-    }
-    for (int i = 0; i < info->size(); ++i) {
-        if ((*info)[i].getType() == TSTRING) possible_list.push_back((*info)[i]);
+    std::vector<std::string> possible_list;
+    
+    auto& enum_node_map = info->enum_node_map;
+    for (const auto& entry: enum_node_map) {
+        if (entry.first[0] != '\"') continue;
+        std::string s = entry.first.substr(1, entry.first.size() - 2);
+        possible_list.push_back(s);
     }
     WitnessList result;
     bool target = oup[0].getBool();
     for (int i = 0; i < possible_list.size(); ++i) {
         for (int j = 0; j < possible_list.size(); ++j) {
-            std::string s = possible_list[i].getString();
-            std::string t = possible_list[j].getString();
+            std::string s = possible_list[i];
+            std::string t = possible_list[j];
             if (target == (s.length() <= t.length() && t.substr(0, s.length()) == s)) {
-                result.push_back({{possible_list[i]}, {possible_list[j]}});
+                result.push_back({{Data(new StringValue(possible_list[i]))}, {Data(new StringValue(possible_list[j]))}});
             }
         }
     }
@@ -460,21 +461,21 @@ WitnessList StringSuffixOf::witnessFunction(const DataList &oup, GlobalInfo *glo
     assert(oup.size() == 1);
 #endif
     auto* info = dynamic_cast<StringInfo*>(global_info);
-    std::vector<Data> possible_list;
-    for (auto& s: info->const_list) {
-        if (s.getType() == TSTRING) possible_list.push_back(s);
-    }
-    for (int i = 0; i < info->size(); ++i) {
-        if ((*info)[i].getType() == TSTRING) possible_list.push_back((*info)[i]);
+    std::vector<std::string> possible_list;
+    auto& enum_node_map = info->enum_node_map;
+    for (const auto& entry: enum_node_map) {
+        if (entry.first[0] != '\"') continue;
+        std::string s = entry.first.substr(1, entry.first.size() - 2);
+        possible_list.push_back(s);
     }
     WitnessList result;
     bool target = oup[0].getBool();
     for (int i = 0; i < possible_list.size(); ++i) {
         for (int j = 0; j < possible_list.size(); ++j) {
-            std::string s = possible_list[i].getString();
-            std::string t = possible_list[j].getString();
+            std::string s = possible_list[i];
+            std::string t = possible_list[j];
             if (target == (s.length() <= t.length() && t.substr(t.length() - s.length(), s.length()) == s)) {
-                result.push_back({{possible_list[i]}, {possible_list[j]}});
+                result.push_back({{Data(new StringValue(possible_list[i]))}, {Data(new StringValue(possible_list[j]))}});
             }
         }
     }
@@ -489,21 +490,24 @@ WitnessList StringContains::witnessFunction(const DataList &oup, GlobalInfo *glo
     assert(oup.size() == 1);
 #endif
     auto* info = dynamic_cast<StringInfo*>(global_info);
-    std::vector<Data> possible_list;
-    for (auto& s: info->const_list) {
-        if (s.getType() == TSTRING) possible_list.push_back(s);
-    }
-    for (int i = 0; i < info->size(); ++i) {
-        if ((*info)[i].getType() == TSTRING) possible_list.push_back((*info)[i]);
+    std::vector<std::string> possible_list;
+    auto& enum_node_map = info->enum_node_map;
+    for (const auto& entry: enum_node_map) {
+        if (entry.first[0] != '\"') continue;
+        std::string s = entry.first.substr(1, entry.first.size() - 2);
+        possible_list.push_back(s);
     }
     WitnessList result;
     bool target = oup[0].getBool();
     for (int i = 0; i < possible_list.size(); ++i) {
         for (int j = 0; j < possible_list.size(); ++j) {
-            std::string s = possible_list[i].getString();
-            std::string t = possible_list[j].getString();
+            std::string s = possible_list[i];
+            std::string t = possible_list[j];
             if (target == (s.find(t) != std::string::npos)) {
-                result.push_back({{possible_list[i]}, {possible_list[j]}});
+                auto data1 = Data(new StringValue(possible_list[i]));
+                auto data2 = Data(new StringValue(possible_list[j]));
+                std::vector<std::vector<Data>> candidate = {{data1}, {data2}};
+                result.push_back(candidate);
             }
         }
     }
