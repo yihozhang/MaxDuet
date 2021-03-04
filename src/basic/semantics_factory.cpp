@@ -94,7 +94,9 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
     // TODO: this is wrong!!!
     auto* string_info = dynamic_cast<StringInfo*>(global_info);
     for (const auto& node_entry: string_info->enum_node_map) {
-        int lcp_pos = strlcp(node_entry.first, s);
+        if (node_entry.first[0] != '\"') continue;
+        auto oup = node_entry.first.substr(1, node_entry.first.size() - 2);
+        int lcp_pos = strlcp(oup, s);
         if (0 < lcp_pos && lcp_pos < n) {
             result_size += !should_emit[lcp_pos];
             should_emit[lcp_pos] = 1;
@@ -119,6 +121,12 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
         }
     }
     assert(j == 0);
+    // for (int i = 0; i < result_size; i++) {
+    //     for (int j = 0; j < result[i].size(); j++)
+    //         std::cerr << result[i][j][0].toString() << " ";
+    //     // std::cerr << result[i][1][0].toString() << std::endl;
+    //     std::cerr << std::endl;
+    // }
     return result;
 }
 
