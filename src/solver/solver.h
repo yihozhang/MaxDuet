@@ -23,6 +23,7 @@ struct VSAEdge {
 
 struct VSANode {
     std::vector<VSAEdge*> edge_list;
+    std::vector<Program*> edge_supporters;
     int state;
     StateValue value;
     Program* best_program;

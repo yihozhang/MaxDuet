@@ -90,6 +90,7 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
     std::string s = oup[0].getString();
     int n = s.length();
     std::vector<int> should_emit(n + 1);
+    std::vector<Program*> supporters(n + 1);
     int result_size = 0;
     // TODO: this is wrong!!!
     auto* string_info = dynamic_cast<StringInfo*>(global_info);
@@ -98,8 +99,11 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
         auto oup = node_entry.first.substr(1, node_entry.first.size() - 2);
         int lcp_pos = strlcp(oup, s);
         if (0 < lcp_pos && lcp_pos < n) {
-            result_size += !should_emit[lcp_pos];
-            should_emit[lcp_pos] = 1;
+            if (!should_emit[lcp_pos]) {
+                result_size += 1;
+                should_emit[lcp_pos] = 1;
+                supporters[lcp_pos] = node_entry.second->best_program;
+            }
         }
     }
 
@@ -108,6 +112,7 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
     int j = 0;
     for (int i = 0; i < n; ++i) {
         if (should_emit[i]) {
+            supporters[j] = supporters[i];
             result[j++].push_back({Data(new StringValue(now))});
         }
         now += s[i];
@@ -120,6 +125,7 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
             result[--j].push_back({Data(new StringValue(now))});
         }
     }
+    string_info->supporters = std::move(supporters);
     assert(j == 0);
     // for (int i = 0; i < result_size; i++) {
     //     for (int j = 0; j < result[i].size(); j++)
@@ -253,7 +259,7 @@ WitnessList IntToString::witnessFunction(const DataList &oup, GlobalInfo *global
     return {{{Data(new IntValue(int_value))}}};
 }
 
-void StringSubstr::getAllChoice(std::string s, std::string t, WitnessList &result) {
+void StringSubstr::getAllChoice(const std::string& s, const std::string& t, WitnessList &result) {
     if (t.length() > s.length()) return;
     if (t.length() == 0) {
         result.push_back({{Data(new StringValue(s))},

@@ -33,6 +33,7 @@ public:
     std::unordered_map<std::string, VSANode*> enum_node_map;
     // state -> size -> node
     std::vector<std::vector<std::vector<VSANode*>>> node_pool;
+    std::vector<Program*> supporters;
     Specification* spec;
     void setInp(const DataList& _inp) {
         param_value.clear();

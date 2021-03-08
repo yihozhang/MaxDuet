@@ -81,21 +81,31 @@ Program* SynthesisTask::getBestProgramWithoutOup(int state) {
 }
 
 void SynthesisTask::buildEdge(VSANode *node, int example_id) {
+    // TODO: note that when incremental enumeration is a thing, this need to be changed
+    // i.e., a node that has built edge may need to rebuild.
     node->is_build_edge = true;
     if (example_id <= 0) {
         auto& graph_node = graph->minimal_context_list[node->state];
         for (auto* graph_edge: graph_node.edge_list) {
             GlobalInfo* info = nullptr;
             if (global::spec_type == S_PBE) {
+                global::string_info->supporters.clear();
                 global::string_info->setInp(example_list[-example_id]->inp);
                 info = global::string_info;
             } else info = param_info_list[-example_id];
             auto result = graph_edge->rule->semantics->witnessFunction(node->value[0], info);
+            // debug
+            assert(node->edge_supporters.size() == node->edge_list.size());
 #ifdef DEBUG
             checkWitness(graph_edge->rule->semantics, result, node->value[0], info);
 #endif
+            const auto& supporters = global::string_info->supporters;
             for (auto& result_term: result) {
-                std::vector<VSANode*> sub_node_list;
+                if (supporters.size() != 0) {
+                    node->edge_supporters.push_back(supporters[node->edge_list.size()]);
+                } else {
+                    node->edge_supporters.push_back(nullptr);
+                }
 #ifdef DEBUG
                 assert(result_term.size() == graph_edge->rule->param_list.size());
 #endif
@@ -112,17 +122,32 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
         if (!l->is_build_edge) buildEdge(l, example_id - 1);
         if (!r->is_build_edge) buildEdge(r, -example_id);
         std::unordered_map<std::string, std::pair<std::vector<VSAEdge*>, std::vector<VSAEdge*>>> edge_info;
-        for (auto* edge: l->edge_list) {
+        std::unordered_map<std::string, std::pair<std::vector<Program*>, std::vector<Program*>>> supporter_info;
+        for (int i = 0; i < l->edge_list.size(); i++) {
+            auto& edge = l->edge_list[i];
+            auto& supporter = l->edge_supporters[i];
             edge_info[edge->semantics->name].first.push_back(edge);
+            supporter_info[edge->semantics->name].first.push_back(supporter);
         }
-        for (auto* edge: r->edge_list) {
+        for (int i = 0; i < r->edge_list.size(); i++) {
+            auto& edge = r->edge_list[i];
+            auto& supporter = r->edge_supporters[i];
             edge_info[edge->semantics->name].second.push_back(edge);
+            supporter_info[edge->semantics->name].second.push_back(supporter);
         }
         for (auto info: edge_info) {
             // for all instantiation of the production rule valid for ex 1..n-1
-            for (auto* l_edge: info.second.first) {
+            for (int lpos = 0; lpos < info.second.first.size(); lpos++) {
+            // for (auto* l_edge: info.second.first) {
+                auto* l_edge = info.second.first[lpos];
                 // for all instantiation of the production rule valid for ex n
-                for (auto* r_edge: info.second.second) {
+                for (int rpos = 0; rpos < info.second.second.size(); rpos++) {
+                // for (auto* r_edge: info.second.second) {
+                    auto* r_edge = info.second.second[rpos];
+                    auto* lsupporter = supporter_info[info.first].first[lpos];
+                    auto* rsupporter = supporter_info[info.first].second[rpos];
+                    if (lsupporter && rsupporter && lsupporter != rsupporter) continue;
+
                     std::vector<VSANode*> v;
 #ifdef DEBUG
                     assert(l_edge->v.size() == r_edge->v.size());
@@ -145,6 +170,7 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
                     }
                     if (!is_invalid) {
                         node->edge_list.push_back(new VSAEdge(v, l_edge->semantics, l_edge->rule_w));
+                        node->edge_supporters.push_back(supporter_info[info.first].first[lpos]);
                     }
                 }
             }
@@ -343,7 +369,6 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     // printEnums();
-    enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
         // std::cerr << "start enumerating" << std::endl;
         value_limit -= 3;
@@ -449,6 +474,8 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
                     vsanode->best_program = program;
                     vsanode->edge_list.clear();
                     vsanode->edge_list.push_back(new VSAEdge(subnodes, semantics, edge->w));
+                    vsanode->edge_supporters.clear();
+                    vsanode->edge_supporters.push_back(program);
                     vsanode->is_build_edge = true;
                     vsanode->updateP();
                 }
