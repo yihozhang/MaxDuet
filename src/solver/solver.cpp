@@ -368,6 +368,7 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     clearEnumPool();
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
+    enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     // printEnums();
     while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
         // std::cerr << "start enumerating" << std::endl;
