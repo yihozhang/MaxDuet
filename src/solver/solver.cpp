@@ -391,16 +391,42 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     // printEnums();
-    while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
-        // std::cerr << "start enumerating" << std::endl;
-        value_limit -= 3;
-        if (value_limit < -1000) {
-            LOG(INFO) << "No valid program found" << std::endl;
-            exit(0);
+    while (true) {
+        while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
+            // std::cerr << "start enumerating" << std::endl;
+            value_limit -= 3;
+            if (value_limit < -100) {
+                LOG(INFO) << "No valid program found" << std::endl;
+                goto next;
+            }
+            LOG(INFO) << "Relaxed the global lowerbound to " << value_limit << std::endl;
         }
-        LOG(INFO) << "Relaxed the global lowerbound to " << value_limit << std::endl;
+        break;
+next:
+        value_limit = -5;
+        clearEdges();
+        enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     }
     return node->best_program;
+}
+
+void SynthesisTask::clearEdges() {
+    for (auto& nodes_map: single_node_map) {
+        for (auto& entry: nodes_map) {
+            auto& node = entry.second;
+            if (node->best_program != nullptr) continue;
+            node->edge_supporters.clear();
+            node->edge_list.clear();
+            node->is_build_edge = false;
+        }
+    }
+
+    for (auto& entry: combined_node_map) {
+        auto& node = entry.second;
+        if (node->best_program != nullptr) continue;
+        node->edge_list.clear();
+        node->is_build_edge = false;
+    }
 }
 
 void SynthesisTask::clearEnumPool() {

@@ -71,6 +71,7 @@ public:
     void printEnumSize();
     void printEnums();
     void clearEnumPool();
+    void clearEdges();
 public:
     MinimalContextGraph* graph;
     Specification* spec;
