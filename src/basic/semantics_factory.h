@@ -57,7 +57,7 @@ public:
 };
 
 class StringSubstr: public Semantics {
-    void getAllChoice(const std::string& s, const std::string& t, WitnessList &result);
+    void getAllChoice(const std::string& s, const std::string& t, WitnessList &result, Program* program);
 public:
     StringSubstr(): Semantics({TSTRING, TINT, TINT}, TSTRING, "str.substr") {}
 

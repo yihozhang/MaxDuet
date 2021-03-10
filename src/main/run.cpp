@@ -54,38 +54,6 @@ int main(int argc, char** argv) {
     LOG(INFO) << "Synthesizing" << std::endl;
     auto start_time = clock();
     SynthesisTask task(graph, spec);
-#ifdef MY_DEBUG
-    task.addNewExample(spec->example_space[0]);
-    task.addNewExample(spec->example_space[1]);
-    task.enumeratePrograms(2);
-    {
-        const auto& maps = task.enum_node_map;
-        std::cout << "enum1" << std::endl;
-        for (int i = 0; i < maps.size(); i++) {
-            std::cout << "state: " << i << std::endl;
-            for (auto& entry: maps[i]) {
-                std::cout << entry.first << " " << entry.second->state << " ";
-                entry.second->best_program->print();
-                // std::cout <<  " ";
-                // entry.second->print();
-                // std::cout << std::endl;
-            }
-        }
-    }
-    
-    task.enumeratePrograms(2);
-    {
-        const auto& maps = task.enum_node_map;
-        std::cout << "enum2" << std::endl;
-        for (int i = 0; i < maps.size(); i++) {
-            std::cout << "state: " << i << std::endl;
-            for (auto& entry: maps[i]) {
-                std::cout << entry.first << " " << entry.second->state << " ";
-                entry.second->best_program->print();
-            }
-        }
-    }
-#endif
     auto* result = task.solve();
     double time_cost = (clock() - start_time) * 1.0 / CLOCKS_PER_SEC;
     LOG(INFO) << "Result: " << result->toString() << std::endl;

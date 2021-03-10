@@ -80,6 +80,22 @@ Program* SynthesisTask::getBestProgramWithoutOup(int state) {
     return new Program(sub_program, best_edge->rule->semantics);
 }
 
+bool eq(Program* l, Program* r) {
+    if (l->semantics->name != r->semantics->name) {
+        return false;
+    }
+    if (l->sub_list.size() != r->sub_list.size()) {
+        return false;
+    }
+
+    for (int i = 0; i < l->sub_list.size(); i++) {
+        if (eq(l->sub_list[i], r->sub_list[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void SynthesisTask::buildEdge(VSANode *node, int example_id) {
     // TODO: note that when incremental enumeration is a thing, this need to be changed
     // i.e., a node that has built edge may need to rebuild.
@@ -90,6 +106,7 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
             GlobalInfo* info = nullptr;
             if (global::spec_type == S_PBE) {
                 global::string_info->supporters.clear();
+                global::string_info->example_id = -example_id;
                 global::string_info->setInp(example_list[-example_id]->inp);
                 info = global::string_info;
             } else info = param_info_list[-example_id];
@@ -100,9 +117,11 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
             checkWitness(graph_edge->rule->semantics, result, node->value[0], info);
 #endif
             const auto& supporters = global::string_info->supporters;
+            assert(supporters.size() == 0 || result.size() == supporters.size());
+            int idx = 0;
             for (auto& result_term: result) {
                 if (supporters.size() != 0) {
-                    node->edge_supporters.push_back(supporters[node->edge_list.size()]);
+                    node->edge_supporters.push_back(supporters[idx++]);
                 } else {
                     node->edge_supporters.push_back(nullptr);
                 }
@@ -116,6 +135,7 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
                 }
                 node->edge_list.push_back(new VSAEdge(sub_node, graph_edge->rule->semantics, graph_edge->w));
             }
+            assert(idx == supporters.size());
         }
     } else {
         VSANode *l = node->l, *r = node->r;
@@ -146,7 +166,7 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
                     auto* r_edge = info.second.second[rpos];
                     auto* lsupporter = supporter_info[info.first].first[lpos];
                     auto* rsupporter = supporter_info[info.first].second[rpos];
-                    if (lsupporter && rsupporter && lsupporter != rsupporter) continue;
+                    if (lsupporter != nullptr && rsupporter != nullptr && !eq(lsupporter, rsupporter)) continue;
 
                     std::vector<VSANode*> v;
 #ifdef DEBUG
@@ -366,6 +386,7 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     VSANode* node = initNode(0, value, example_list.size() - 1);
     int enum_prog_size = 1;
     clearEnumPool();
+    global::string_info->_enum_node_map.emplace_back();
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
@@ -387,7 +408,6 @@ void SynthesisTask::clearEnumPool() {
         global::string_info->node_pool[i].clear();
         global::string_info->node_pool[i].emplace_back();
     }
-    global::string_info->enum_node_map.clear();
 }
 
 Program * SynthesisTask::solve() {
@@ -428,8 +448,6 @@ void SynthesisTask::enumerateNodes(
     } else {
         int state = v[pos];
         for (int curr_size = 1; curr_size <= prog_size - (((int) v.size()) - pos - 1); curr_size++) {
-            // std::cout << curr_size << std::endl;
-            // for (const auto& entry: enum_node_map[state][curr_size]) {
             for (auto node: global::string_info->node_pool[state][curr_size]) {
                 curr[pos] = node;
                 enumerateNodes(pos + 1, v, curr, ret, prog_size - curr_size);
@@ -441,7 +459,7 @@ void SynthesisTask::enumerateNodes(
 void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
     assert(example_id <= 0);
     example_id = -example_id;
-    auto& enum_node_map = global::string_info->enum_node_map;
+    auto& enum_node_map = global::string_info->_enum_node_map[example_id];
     auto& node_pool = global::string_info->node_pool;
     std::vector<std::unordered_map<std::string, VSANode*>> delta_enum_node_map(graph->minimal_context_list.size());
     for (int i = 0; i < graph->minimal_context_list.size(); i++) {
@@ -462,7 +480,6 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
                     subprograms[j] = subnodes[j]->best_program;
                 }
                 Program* program = new Program(subprograms, semantics);
-
                 Data oup = program->run(example_list[example_id]->inp);
                 StateValue sv = {{oup}};
                 std::string feature = encodeFeature(i, sv);
@@ -470,6 +487,7 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
                     single_node_map[example_id][feature] = new VSANode(i, sv, node.upper_bound);
                 }
                 VSANode* vsanode = single_node_map[example_id][feature];
+                assert(vsanode != nullptr);
                 // otherwise there's already an *optimal* program
                 if (vsanode->best_program == nullptr) {
                     vsanode->best_program = program;
@@ -510,11 +528,14 @@ SynthesisTask::SynthesisTask(MinimalContextGraph* _graph, Specification* _spec):
 
 
 void SynthesisTask::printEnumSize() {
-    std::cout << "enum size: "  << global::string_info->enum_node_map.size() << std::endl;
+    for (int i = 0; i < global::string_info->_enum_node_map.size(); i++) {
+        std::cout << "enum size " << i << " : "  << global::string_info->_enum_node_map[i].size() << std::endl;
+    }
 }
 
 void SynthesisTask::printEnums() {
-    for (auto& entry: global::string_info->enum_node_map) {
+    auto& enum_node_map = *global::string_info->_enum_node_map.end();
+    for (auto& entry: enum_node_map) {
         std::cout << entry.first << ": ";
         entry.second->best_program->print();
     }

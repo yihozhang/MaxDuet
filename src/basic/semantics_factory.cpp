@@ -94,7 +94,7 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
     int result_size = 0;
     // TODO: this is wrong!!!
     auto* string_info = dynamic_cast<StringInfo*>(global_info);
-    for (const auto& node_entry: string_info->enum_node_map) {
+    for (const auto& node_entry: string_info->enum_node_map()) {
         if (node_entry.first[0] != '\"') continue;
         auto oup = node_entry.first.substr(1, node_entry.first.size() - 2);
         int lcp_pos = strlcp(oup, s);
@@ -112,7 +112,7 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
     int j = 0;
     for (int i = 0; i < n; ++i) {
         if (should_emit[i]) {
-            supporters[j] = supporters[i];
+            string_info->supporters.push_back(supporters[i]);
             result[j++].push_back({Data(new StringValue(now))});
         }
         now += s[i];
@@ -125,7 +125,6 @@ WitnessList StringAdd::witnessFunction(const DataList &oup, GlobalInfo *global_i
             result[--j].push_back({Data(new StringValue(now))});
         }
     }
-    string_info->supporters = std::move(supporters);
     assert(j == 0);
     // for (int i = 0; i < result_size; i++) {
     //     for (int j = 0; j < result[i].size(); j++)
@@ -227,17 +226,22 @@ WitnessList StringAt::witnessFunction(const DataList &oup, GlobalInfo *global_in
 #ifdef DEBUG
     assert(oup.size() == 1 && info != nullptr);
 #endif
+    std::vector<Program*> supporters;
     if (oup[0].getString().length() > 1) return {};
     // Assume the first input can only be constants or params
     char t = oup[0].getString()[0];
     WitnessList result;
-    for (auto& entry: info->enum_node_map) {
+    for (auto& entry: info->enum_node_map()) {
         if (entry.first[0] != '\"') continue;
         std::string s = entry.first.substr(1, entry.first.size() - 2);
         for (int j = 0; j < s.length(); ++j) {
-            if (s[j] == t) result.push_back({{Data(new StringValue(s))}, {Data(new IntValue(j))}});
+            if (s[j] == t) {
+                supporters.push_back(entry.second->best_program);
+                result.push_back({{Data(new StringValue(s))}, {Data(new IntValue(j))}});
+            }
         }
     }
+    info->supporters = std::move(supporters);
     return result;
 }
 
@@ -259,14 +263,17 @@ WitnessList IntToString::witnessFunction(const DataList &oup, GlobalInfo *global
     return {{{Data(new IntValue(int_value))}}};
 }
 
-void StringSubstr::getAllChoice(const std::string& s, const std::string& t, WitnessList &result) {
+void StringSubstr::getAllChoice(const std::string& s, const std::string& t, WitnessList &result, Program* program) {
     if (t.length() > s.length()) return;
     if (t.length() == 0) {
+        global::string_info->supporters.push_back(program);
         result.push_back({{Data(new StringValue(s))},
                           {Data(new IntValue(global::KIntMin)), Data(new IntValue(-1))}, {}});
+        global::string_info->supporters.push_back(program);
         result.push_back({{Data(new StringValue(s))}, {},
                           {Data(new IntValue(global::KIntMin)), Data(new IntValue(0))}});
         if (s.length() <= global::KIntMax) {
+            global::string_info->supporters.push_back(program);
             result.push_back({{Data(new StringValue(s))},
                               {Data(new IntValue(s.length())), Data(new IntValue(global::KIntMax))}, {}});
         }
@@ -276,8 +283,10 @@ void StringSubstr::getAllChoice(const std::string& s, const std::string& t, Witn
     int m = t.length();
     for (auto i = s.find(t); i != std::string::npos; i = s.find(t, i + 1)) {
         if (i != n - m) {
+            global::string_info->supporters.push_back(program);
             result.push_back({{Data(new StringValue(s))}, {Data(new IntValue(i))}, {Data(new IntValue(m))}});
         } else {
+            global::string_info->supporters.push_back(program);
             result.push_back({{Data(new StringValue(s))}, {Data(new IntValue(i))}, {Data(new IntValue(m)), Data(new IntValue(global::KIntMax))}});
         }
     }
@@ -294,12 +303,12 @@ WitnessList StringSubstr::witnessFunction(const DataList &oup, GlobalInfo *globa
 #endif
     std::string oup_value = oup[0].getString();
     WitnessList result;
-    auto& enum_node_map = info->enum_node_map;
+    auto& enum_node_map = info->enum_node_map();
     for (const auto& entry: enum_node_map) {
         if (entry.first[0] != '\"') continue;
         std::string param_value = entry.first.substr(1, entry.first.size() - 2);
         // std::cout << param_value << " " << entry.first << std::endl;
-        getAllChoice(param_value, oup_value, result);
+        getAllChoice(param_value, oup_value, result, entry.second->best_program);
     }
     return result;
 }
@@ -370,7 +379,7 @@ WitnessList IntMinus::witnessFunction(const DataList &oup, GlobalInfo *global_in
 }
 
 WitnessList StringLen::witnessFunction(const DataList &oup, GlobalInfo *global_info) {
-    auto* param_info = dynamic_cast<ParamInfo*>(global_info);
+    auto* param_info = dynamic_cast<StringInfo*>(global_info);
     std::pair<int, int> res = datalistToRange(oup);
     int l = res.first, r = res.second;
     //TODO: be more generalize
@@ -379,6 +388,10 @@ WitnessList StringLen::witnessFunction(const DataList &oup, GlobalInfo *global_i
         if ((*param_info)[i].getType() != TSTRING) continue;
         int current_len = (*param_info)[i].getString().length();
         if (current_len >= l && current_len <= r) {
+            auto spec = (*param_info)[i].toString();
+            // TODO: use correct program
+            Program* program = param_info->enum_node_map()[spec]->best_program;
+            param_info->supporters.push_back(program);
             result.push_back({{(*param_info)[i]}});
         }
     }
@@ -406,7 +419,7 @@ WitnessList StringIndexOf::witnessFunction(const DataList &oup, GlobalInfo *glob
     int l = std::max(-1, res.first);
     int r = res.second;
     if (l > r) return {};
-    auto& enum_node_map = string_info->enum_node_map;
+    auto& enum_node_map = string_info->enum_node_map();
     for (const auto& entry: enum_node_map) {
         if (entry.first[0] != '\"') continue;
         std::string s = entry.first.substr(1, entry.first.size() - 2);
@@ -414,6 +427,7 @@ WitnessList StringIndexOf::witnessFunction(const DataList &oup, GlobalInfo *glob
             for (auto const_str: string_info->const_set) {
                 int l = getLastOccur(s, const_str, s.length());
                 if (l <= global::KIntMin) {
+                    string_info->supporters.push_back(entry.second->best_program);
                     result.push_back({{Data(new StringValue(s))},
                                       {Data(new StringValue(const_str))},
                                       {Data(new IntValue(l)), Data(new IntValue(global::KIntMax))}});
@@ -423,11 +437,13 @@ WitnessList StringIndexOf::witnessFunction(const DataList &oup, GlobalInfo *glob
         for (int pos = std::max(0, l); pos <= std::min(r, int(s.length())); ++pos) {
             std::string now;
             now += s[pos];
+            string_info->supporters.push_back(entry.second->best_program);
             result.push_back({{Data(new StringValue(s))}, {Data(new StringValue(now))},
                               {Data(new IntValue(getLastOccur(s, now, pos))), Data(new IntValue(pos))}});
             for (int j = pos + 1; j < s.length(); ++j) {
                 now += s[j];
                 if (string_info->const_set.find(now) != string_info->const_set.end()) {
+                    string_info->supporters.push_back(entry.second->best_program);
                     result.push_back({{Data(new StringValue(s))}, {Data(new StringValue(now))},
                                       {Data(new IntValue(getLastOccur(s, now, pos))), Data(new IntValue(pos))}});
                 }
@@ -447,11 +463,13 @@ WitnessList StringPrefixOf::witnessFunction(const DataList &oup, GlobalInfo *glo
     auto* info = dynamic_cast<StringInfo*>(global_info);
     std::vector<std::string> possible_list;
     
-    auto& enum_node_map = info->enum_node_map;
+    auto& enum_node_map = info->enum_node_map();
+    std::vector<Program*> possible_supporters;
     for (const auto& entry: enum_node_map) {
         if (entry.first[0] != '\"') continue;
         std::string s = entry.first.substr(1, entry.first.size() - 2);
         possible_list.push_back(s);
+        possible_supporters.push_back(entry.second->best_program);
     }
     WitnessList result;
     bool target = oup[0].getBool();
@@ -460,6 +478,7 @@ WitnessList StringPrefixOf::witnessFunction(const DataList &oup, GlobalInfo *glo
             std::string s = possible_list[i];
             std::string t = possible_list[j];
             if (target == (s.length() <= t.length() && t.substr(0, s.length()) == s)) {
+                info->supporters.push_back(possible_supporters[i]);
                 result.push_back({{Data(new StringValue(possible_list[i]))}, {Data(new StringValue(possible_list[j]))}});
             }
         }
@@ -476,11 +495,13 @@ WitnessList StringSuffixOf::witnessFunction(const DataList &oup, GlobalInfo *glo
 #endif
     auto* info = dynamic_cast<StringInfo*>(global_info);
     std::vector<std::string> possible_list;
-    auto& enum_node_map = info->enum_node_map;
+    std::vector<Program*> possible_supporters;
+    auto& enum_node_map = info->enum_node_map();
     for (const auto& entry: enum_node_map) {
         if (entry.first[0] != '\"') continue;
         std::string s = entry.first.substr(1, entry.first.size() - 2);
         possible_list.push_back(s);
+        possible_supporters.push_back(entry.second->best_program);
     }
     WitnessList result;
     bool target = oup[0].getBool();
@@ -489,6 +510,7 @@ WitnessList StringSuffixOf::witnessFunction(const DataList &oup, GlobalInfo *glo
             std::string s = possible_list[i];
             std::string t = possible_list[j];
             if (target == (s.length() <= t.length() && t.substr(t.length() - s.length(), s.length()) == s)) {
+                info->supporters.push_back(possible_supporters[i]);
                 result.push_back({{Data(new StringValue(possible_list[i]))}, {Data(new StringValue(possible_list[j]))}});
             }
         }
@@ -505,11 +527,13 @@ WitnessList StringContains::witnessFunction(const DataList &oup, GlobalInfo *glo
 #endif
     auto* info = dynamic_cast<StringInfo*>(global_info);
     std::vector<std::string> possible_list;
-    auto& enum_node_map = info->enum_node_map;
+    std::vector<Program*> possible_supporters;
+    auto& enum_node_map = info->enum_node_map();
     for (const auto& entry: enum_node_map) {
         if (entry.first[0] != '\"') continue;
         std::string s = entry.first.substr(1, entry.first.size() - 2);
         possible_list.push_back(s);
+        possible_supporters.push_back(entry.second->best_program);
     }
     WitnessList result;
     bool target = oup[0].getBool();
@@ -522,6 +546,7 @@ WitnessList StringContains::witnessFunction(const DataList &oup, GlobalInfo *glo
                 auto data2 = Data(new StringValue(possible_list[j]));
                 std::vector<std::vector<Data>> candidate = {{data1}, {data2}};
                 result.push_back(candidate);
+                info->supporters.push_back(possible_supporters[i]);
             }
         }
     }
