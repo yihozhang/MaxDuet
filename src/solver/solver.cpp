@@ -213,7 +213,7 @@ void VSANode::print() {
 bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double limit) {
     static int ts = 0;
     if (node->best_program != nullptr) return true;
-    if (node->p < limit) return false;
+    if (node->p < limit && node->is_build_edge) return false;
     if (node->l != nullptr) {
         if (!getBestProgramWithOup(node->l, example_id - 1, limit) || !getBestProgramWithOup(node->r, -example_id, limit)) {
             node->updateP();
@@ -391,21 +391,20 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     // printEnums();
-    while (true) {
-        while (!getBestProgramWithOup(node, example_list.size() - 1, value_limit)) {
+    bool is_success = false;
+    while (!is_success) {
+        while (!(is_success = getBestProgramWithOup(node, example_list.size() - 1, value_limit))) {
             // std::cerr << "start enumerating" << std::endl;
             value_limit -= 3;
             if (value_limit < -100) {
-                LOG(INFO) << "No valid program found" << std::endl;
-                goto next;
+                LOG(INFO) << "No valid program found, restart" << std::endl;
+                value_limit = -5;
+                clearEdges();
+                enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
+                break;
             }
             LOG(INFO) << "Relaxed the global lowerbound to " << value_limit << std::endl;
         }
-        break;
-next:
-        value_limit = -5;
-        clearEdges();
-        enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
     }
     return node->best_program;
 }
