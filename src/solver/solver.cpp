@@ -190,7 +190,8 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
                     }
                     if (!is_invalid) {
                         node->edge_list.push_back(new VSAEdge(v, l_edge->semantics, l_edge->rule_w));
-                        node->edge_supporters.push_back(supporter_info[info.first].first[lpos]);
+                        auto supporter = lsupporter == nullptr || rsupporter == nullptr ? nullptr : supporter_info[info.first].first[lpos];
+                        node->edge_supporters.push_back(supporter);
                     }
                 }
             }
@@ -387,9 +388,12 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     int enum_prog_size = 1;
     clearEnumPool();
     global::string_info->_enum_node_map.emplace_back();
-    enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
-    enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
-    enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
+    VSANode* ret;
+    if ((ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++))
+            || (ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++))
+            || (ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++))) {
+        return ret->best_program;
+    }
     // printEnums();
     bool is_success = false;
     while (!is_success) {
@@ -400,7 +404,9 @@ Program* SynthesisTask::synthesisProgramFromExample() {
                 LOG(INFO) << "No valid program found, restart" << std::endl;
                 value_limit = -5;
                 clearEdges();
-                enumeratePrograms(-(example_list.size() - 1), enum_prog_size++);
+                if ((ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++)) != nullptr) {
+                    return ret->best_program;
+                }
                 break;
             }
             LOG(INFO) << "Relaxed the global lowerbound to " << value_limit << std::endl;
@@ -481,9 +487,10 @@ void SynthesisTask::enumerateNodes(
     }
 }
 
-void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
+VSANode* SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
     assert(example_id <= 0);
     example_id = -example_id;
+    VSANode* ret = nullptr;
     auto& enum_node_map = global::string_info->_enum_node_map[example_id];
     auto& node_pool = global::string_info->node_pool;
     std::vector<std::unordered_map<std::string, VSANode*>> delta_enum_node_map(graph->minimal_context_list.size());
@@ -505,8 +512,22 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
                     subprograms[j] = subnodes[j]->best_program;
                 }
                 Program* program = new Program(subprograms, semantics);
+                bool is_result = true;
+                for (int i = 0; i < example_id; i++) {
+                    Data oup = program->run(example_list[i]->inp);
+                    if (ret == nullptr && !(oup == example_list[i]->oup)) {
+                        is_result = false;
+                        break;
+                    }
+                }
                 Data oup = program->run(example_list[example_id]->inp);
                 StateValue sv = {{oup}};
+                if (is_result && ret == nullptr && oup == example_list[example_id]->oup) {
+                    std::cout << oup.toString() << " " << example_list[example_id]->oup.toString() << std::endl;
+                    program->print();
+                    ret =  new VSANode(i, sv, node.upper_bound);
+                    ret->best_program = program;
+                }
                 std::string feature = encodeFeature(i, sv);
                 if (!single_node_map[example_id].count(feature)) {
                     single_node_map[example_id][feature] = new VSANode(i, sv, node.upper_bound);
@@ -542,6 +563,11 @@ void SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
         }
     }
     LOG(INFO) << "enumerated size = " << tot << " for size " << prog_size << std::endl;
+    if (ret != nullptr) {
+        printf("found when example_id = %d: ", example_id);
+        ret->print();
+    }
+    return ret;
 }
 
 SynthesisTask::SynthesisTask(MinimalContextGraph* _graph, Specification* _spec): graph(_graph), spec(_spec), value_limit(-5) {

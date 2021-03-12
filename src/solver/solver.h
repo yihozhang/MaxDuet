@@ -66,7 +66,7 @@ private:
     void buildEdge(VSANode* node, int example_id);
 public:
     void addNewExample(Example* example);
-    void enumeratePrograms(int example_id, int prog_size);
+    VSANode* enumeratePrograms(int example_id, int prog_size);
     void enumerateNodes(int pos, const std::vector<int>& v, std::vector<VSANode*>& curr, std::vector<std::vector<VSANode*>>& ret, int prog_size);
     void printEnumSize();
     void printEnums();
