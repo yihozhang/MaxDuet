@@ -97,8 +97,7 @@ bool eq(Program* l, Program* r) {
 }
 
 void SynthesisTask::buildEdge(VSANode *node, int example_id) {
-    // TODO: note that when incremental enumeration is a thing, this need to be changed
-    // i.e., a node that has built edge may need to rebuild.
+    // std::cerr << example_id << " " << encodeStateValue(node->value) << "... ";
     node->is_build_edge = true;
     if (example_id <= 0) {
         auto& graph_node = graph->minimal_context_list[node->state];
@@ -134,7 +133,14 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
                     sub_node.push_back(initNode(graph_edge->v[i], {result_term[i]}, example_id));
                 }
                 node->edge_list.push_back(new VSAEdge(sub_node, graph_edge->rule->semantics, graph_edge->w));
-            }
+                
+                // if (graph_edge->rule->semantics->name == "ite") {
+                //     // node->print();
+                //     for (int i = 0; i < node->edge_list.size(); i++) {
+                //         (*(node->edge_list.end() - 1))->print();
+                //     }
+                // }
+            }            
             assert(idx == supporters.size());
         }
     } else {
@@ -197,6 +203,7 @@ void SynthesisTask::buildEdge(VSANode *node, int example_id) {
             }
         }
     }
+    // std::cerr << "done with size " << node->edge_list.size() << std::endl;
 }
 
 void VSAEdge::print() {
@@ -212,9 +219,10 @@ void VSANode::print() {
 #define TRIVIAL_BOUND(node) (graph->minimal_context_list[node->state].upper_bound)
 
 bool SynthesisTask::getBestProgramWithOup(VSANode* node, int example_id, double limit) {
+    // std::cerr << "solving" << encodeStateValue(node->value) << " " << example_id << " " << limit << std::endl;
     static int ts = 0;
     if (node->best_program != nullptr) return true;
-    if (node->p < limit && node->is_build_edge) return false;
+    if (node->p < limit) return false;
     if (node->l != nullptr) {
         if (!getBestProgramWithOup(node->l, example_id - 1, limit) || !getBestProgramWithOup(node->r, -example_id, limit)) {
             node->updateP();
@@ -390,8 +398,9 @@ Program* SynthesisTask::synthesisProgramFromExample() {
     global::string_info->_enum_node_map.emplace_back();
     VSANode* ret;
     if ((ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++))
-            || (ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++))
-            || (ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++))) {
+            // || (ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++))
+            // || (ret = enumeratePrograms(-(example_list.size() - 1), enum_prog_size++))
+        ) {
         return ret->best_program;
     }
     // printEnums();
@@ -537,12 +546,38 @@ VSANode* SynthesisTask::enumeratePrograms(int example_id, int prog_size) {
                 // otherwise there's already an *optimal* program
                 if (vsanode->best_program == nullptr) {
                     vsanode->best_program = program;
-                    vsanode->edge_list.clear();
-                    vsanode->edge_list.push_back(new VSAEdge(subnodes, semantics, edge->w));
-                    vsanode->edge_supporters.clear();
-                    vsanode->edge_supporters.push_back(program);
-                    vsanode->is_build_edge = true;
-                    vsanode->updateP();
+                    // std::cout << vsanode->p << " " << calculateProbability(i, program) << std::endl;
+                    // vsanode->p = calculateProbability(i, program);
+
+                    // vsanode->edge_list.clear();
+                    // vsanode->edge_list.push_back(new VSAEdge(subnodes, semantics, edge->w));
+                    // vsanode->edge_supporters.clear();
+                    // vsanode->edge_supporters.push_back(nullptr);
+                    // vsanode->is_build_edge = true;
+                } else {
+                    // auto new_edge = new VSAEdge(subnodes, semantics, edge->w);
+                    // bool should_add = true;
+                    // for (auto& edge: vsanode->edge_list) {
+                    //     if (edge->semantics->name != new_edge->semantics->name) continue;
+                    //     if (edge->v.size() != new_edge->v.size()) continue;
+                    //     for (int i = 0; i < edge->v.size(); i++) {
+                    //         if (!eq(edge->v[i]->best_program, new_edge->v[i]->best_program)) {
+                    //             goto next_loop;
+                    //         }
+                    //     }
+                    //     should_add = false;
+                    //     break;
+                    //     next_loop: ;
+                    // }
+                    // if (should_add) {
+                    //     if (semantics->name == "ite") {
+                    //         new_edge->print();
+                    //     }
+                    //     vsanode->edge_list.push_back(new_edge);
+                    //     vsanode->edge_supporters.push_back(nullptr);
+                    // } else {
+                    //     delete new_edge;
+                    // }
                 }
                 std::string oup_feature = oup.toString();
                 if (!delta_enum_node_map[i].count(oup_feature)) {
