@@ -1,3 +1,5 @@
+**NOTICE: MaxDuet is a course project trying to propose an extension on top of [MaxFlash](https://github.com/jiry17/MaxFlash). Below are the README appearing in the original MaxFlash project.**
+
 ## MaxFlash
 
 *MaxFlash* is a programming-by-example synthesizer that combining dynamic programming and structural probability. Our evaluation shows that *MaxFlash* achieves $\times 4.107 - \times 2080$ speed-ups against state-of-the-art solvers on $244$ real-world synthesis tasks.
